@@ -81,7 +81,7 @@
             background-color: #4a90e2;
         }
         .tab-content {
-            display: none;
+            display: none !important;
             width: 90%;
             max-width: 1200px;
             background: white;
@@ -91,7 +91,7 @@
             margin-bottom: 40px;
         }
         .tab-content.active {
-            display: block;
+            display: block !important;
             animation: fadeIn 0.5s ease-in-out;
         }
         @keyframes fadeIn {
@@ -173,6 +173,134 @@
         .module-card button, .subject-card button, .theme-card button, .quiz-card button {
             margin-top: 10px;
             width: 100%;
+        }
+        .card-actions {
+            display: flex;
+            gap: 8px;
+            margin-top: 10px;
+        }
+        .card-actions button {
+            flex: 1;
+            margin-top: 0;
+        }
+        .order-buttons {
+            display: flex;
+            gap: 5px;
+            margin-top: 10px;
+        }
+        .order-btn {
+            flex: 1;
+            background-color: #6c757d;
+            color: white;
+            padding: 8px;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 0.9em;
+            transition: background-color 0.3s ease, transform 0.2s ease;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 5px;
+        }
+        .order-btn:hover {
+            background-color: #5a6268;
+            transform: scale(1.05);
+        }
+        .order-btn:disabled {
+            background-color: #c6c8ca;
+            cursor: not-allowed;
+            transform: none;
+        }
+        .migrate-container {
+            display: none;
+            margin-top: 25px;
+            padding: 20px;
+            background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
+            border-radius: 12px;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+            border: 2px solid #dee2e6;
+        }
+        .migrate-container.active {
+            display: block;
+            animation: slideDown 0.3s ease-out;
+        }
+        @keyframes slideDown {
+            from {
+                opacity: 0;
+                transform: translateY(-10px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+        .migrate-header {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            margin-bottom: 15px;
+            color: #1a2b49;
+        }
+        .migrate-header i {
+            font-size: 1.3em;
+            color: #ff9800;
+        }
+        .migrate-header h3 {
+            margin: 0;
+            font-size: 1.2em;
+            font-weight: 600;
+        }
+        .migrate-content {
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+        }
+        .migrate-select-wrapper {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+        .migrate-select-wrapper label {
+            font-weight: 600;
+            color: #495057;
+            font-size: 0.95em;
+        }
+        .migrate-select-wrapper select {
+            padding: 12px;
+            border: 2px solid #ced4da;
+            border-radius: 8px;
+            font-size: 1em;
+            transition: border-color 0.3s ease, box-shadow 0.3s ease;
+            background: white;
+        }
+        .migrate-select-wrapper select:focus {
+            border-color: #ff9800;
+            outline: none;
+            box-shadow: 0 0 0 3px rgba(255, 152, 0, 0.1);
+        }
+        .migrate-btn {
+            background: linear-gradient(135deg, #ff9800 0%, #f57c00 100%);
+            color: white;
+            padding: 14px 24px;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 1em;
+            font-weight: 600;
+            transition: transform 0.2s ease, box-shadow 0.3s ease;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 10px;
+            box-shadow: 0 4px 8px rgba(255, 152, 0, 0.3);
+        }
+        .migrate-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 12px rgba(255, 152, 0, 0.4);
+        }
+        .migrate-btn:active {
+            transform: translateY(0);
         }
         .warning-message {
             display: none;
@@ -367,6 +495,24 @@
             <input type="text" id="theme-name" placeholder="Digite o nome do assunto">
             <button id="theme-save">Salvar Assunto</button>
             <button id="theme-delete" class="delete" style="display: none;">Excluir Assunto</button>
+            <div id="theme-migrate-container" class="migrate-container">
+                <div class="migrate-header">
+                    <i class="fas fa-exchange-alt"></i>
+                    <h3>Migrar Assunto</h3>
+                </div>
+                <div class="migrate-content">
+                    <div class="migrate-select-wrapper">
+                        <label for="theme-new-subject">Selecione o novo tema de destino</label>
+                        <select id="theme-new-subject">
+                            <option value="">Selecione o novo tema</option>
+                        </select>
+                    </div>
+                    <button id="theme-migrate" class="migrate-btn">
+                        <i class="fas fa-arrow-right"></i>
+                        <span>Migrar Assunto (com Módulos e Avaliações)</span>
+                    </button>
+                </div>
+            </div>
             <div id="theme-loading" class="loading-spinner"></div>
             <h3 style="margin-top: 20px;">Assuntos Existentes</h3>
             <div id="themes-container" class="themes-container"></div>
@@ -457,6 +603,22 @@
         let currentQuizIndex = null;
         let loginAttempts = 0;
         let isLocked = false;
+
+        // Função para inicializar abas corretamente
+        function initializeTabs() {
+            const allTabButtons = document.querySelectorAll('.tab-btn');
+            const allTabContents = document.querySelectorAll('.tab-content');
+            
+            // Remover active de todas as abas
+            allTabButtons.forEach(btn => btn.classList.remove('active'));
+            allTabContents.forEach(content => content.classList.remove('active'));
+            
+            // Ativar apenas a aba de subjects
+            const subjectsBtn = document.querySelector('.tab-btn[data-tab="subjects"]');
+            const subjectsTab = document.getElementById('subjects-tab');
+            if (subjectsBtn) subjectsBtn.classList.add('active');
+            if (subjectsTab) subjectsTab.classList.add('active');
+        }
 
         // Funções de utilidade
         function showWarning(message) {
@@ -580,13 +742,20 @@
                 }
                 const result = await response.json();
                 data = result.record || { trainingData: {}, quizData: {} };
+                initializeOrder();
                 populateSubjectSelects();
                 populateSubjects();
                 populateThemes();
                 populateModules();
                 populateQuizzes();
-                document.querySelector('.tab-btn[data-tab="subjects"]').classList.add('active');
-                document.getElementById('subjects-tab').classList.add('active');
+                // Garantir que todas as abas estejam desativadas antes de ativar a inicial
+                tabButtons.forEach(b => b.classList.remove('active'));
+                tabContents.forEach(c => c.classList.remove('active'));
+                // Ativar apenas a aba de subjects
+                const subjectsBtn = document.querySelector('.tab-btn[data-tab="subjects"]');
+                const subjectsTab = document.getElementById('subjects-tab');
+                if (subjectsBtn) subjectsBtn.classList.add('active');
+                if (subjectsTab) subjectsTab.classList.add('active');
             } catch (error) {
                 console.error('Erro ao carregar dados:', error.message);
                 showWarning('Não foi possível carregar os dados. Tente novamente.');
@@ -632,6 +801,178 @@
             return ids.length ? Math.max(...ids) + 1 : 1;
         }
 
+        // Funções auxiliares para ordenação
+        function getOrderedIds(obj) {
+            // Se não houver ordem salva ou se estiver vazia, usa a ordem atual das chaves
+            if (!data.order || !data.order.subjects || data.order.subjects.length === 0) {
+                const naturalOrder = Object.keys(obj).map(Number).sort((a, b) => a - b);
+                // Se houver ordem salva mas vazia, inicializar com a ordem natural
+                if (data.order && data.order.subjects && data.order.subjects.length === 0) {
+                    data.order.subjects = naturalOrder;
+                }
+                return naturalOrder;
+            }
+            // Retorna a ordem salva, filtrando IDs que não existem mais
+            const filteredOrder = data.order.subjects.filter(id => obj[id] !== undefined);
+            // Se após filtrar não sobrar nada, usar ordem natural
+            if (filteredOrder.length === 0) {
+                const naturalOrder = Object.keys(obj).map(Number).sort((a, b) => a - b);
+                data.order.subjects = naturalOrder;
+                return naturalOrder;
+            }
+            return filteredOrder;
+        }
+
+        function getOrderedThemeIds(subjectId) {
+            const themes = data.trainingData[subjectId]?.themes || {};
+            if (!data.order || !data.order.themes || !data.order.themes[subjectId]) {
+                return Object.keys(themes).map(Number).sort((a, b) => a - b);
+            }
+            return data.order.themes[subjectId].filter(id => themes[id] !== undefined);
+        }
+
+        function getOrderedModuleIndices(subjectId, themeId) {
+            const modules = data.trainingData[subjectId]?.themes[themeId]?.modules || [];
+            if (!data.order || !data.order.modules || !data.order.modules[`${subjectId}_${themeId}`]) {
+                return modules.map((_, i) => i);
+            }
+            const savedOrder = data.order.modules[`${subjectId}_${themeId}`];
+            return savedOrder.filter(idx => idx < modules.length);
+        }
+
+        function getOrderedQuizIndices(subjectId, themeId) {
+            const quizKey = `${subjectId}_${themeId}`;
+            const quizzes = data.quizData[quizKey] || [];
+            if (!data.order || !data.order.quizzes || !data.order.quizzes[quizKey]) {
+                return quizzes.map((_, i) => i);
+            }
+            const savedOrder = data.order.quizzes[quizKey];
+            return savedOrder.filter(idx => idx < quizzes.length);
+        }
+
+        function initializeOrder() {
+            if (!data.order) {
+                data.order = {
+                    subjects: [],
+                    themes: {},
+                    modules: {},
+                    quizzes: {}
+                };
+            }
+            if (!data.order.subjects) data.order.subjects = [];
+            if (!data.order.themes) data.order.themes = {};
+            if (!data.order.modules) data.order.modules = {};
+            if (!data.order.quizzes) data.order.quizzes = {};
+            
+            // Se há dados de temas mas a ordem está vazia, inicializar com a ordem natural
+            if (data.trainingData && Object.keys(data.trainingData).length > 0 && data.order.subjects.length === 0) {
+                data.order.subjects = Object.keys(data.trainingData).map(Number).sort((a, b) => a - b);
+            }
+        }
+
+        async function moveSubject(id, direction) {
+            initializeOrder();
+            const orderedIds = getOrderedIds(data.trainingData);
+            const currentIndex = orderedIds.indexOf(Number(id));
+            if (currentIndex === -1) return false;
+            
+            const newIndex = direction === 'up' ? currentIndex - 1 : currentIndex + 1;
+            if (newIndex < 0 || newIndex >= orderedIds.length) return false;
+            
+            [orderedIds[currentIndex], orderedIds[newIndex]] = [orderedIds[newIndex], orderedIds[currentIndex]];
+            data.order.subjects = orderedIds;
+            
+            if (await saveData()) {
+                populateSubjectSelects();
+                populateSubjects();
+                showWarning('Ordem dos temas atualizada!');
+                return true;
+            }
+            return false;
+        }
+
+        async function moveTheme(subjectId, themeId, direction) {
+            initializeOrder();
+            if (!data.order.themes[subjectId]) {
+                data.order.themes[subjectId] = getOrderedThemeIds(subjectId);
+            }
+            const orderedIds = data.order.themes[subjectId];
+            const currentIndex = orderedIds.indexOf(Number(themeId));
+            if (currentIndex === -1) return false;
+            
+            const newIndex = direction === 'up' ? currentIndex - 1 : currentIndex + 1;
+            if (newIndex < 0 || newIndex >= orderedIds.length) return false;
+            
+            [orderedIds[currentIndex], orderedIds[newIndex]] = [orderedIds[newIndex], orderedIds[currentIndex]];
+            
+            if (await saveData()) {
+                populateModuleThemes();
+                populateQuizThemes();
+                populateThemes();
+                showWarning('Ordem dos assuntos atualizada!');
+                return true;
+            }
+            return false;
+        }
+
+        async function moveModule(subjectId, themeId, index, direction) {
+            initializeOrder();
+            const moduleKey = `${subjectId}_${themeId}`;
+            if (!data.order.modules[moduleKey]) {
+                data.order.modules[moduleKey] = getOrderedModuleIndices(subjectId, themeId);
+            }
+            const orderedIndices = data.order.modules[moduleKey];
+            const currentIndex = orderedIndices.indexOf(index);
+            if (currentIndex === -1) return false;
+            
+            const newIndex = direction === 'up' ? currentIndex - 1 : currentIndex + 1;
+            if (newIndex < 0 || newIndex >= orderedIndices.length) return false;
+            
+            // Mover no array de módulos
+            const modules = data.trainingData[subjectId].themes[themeId].modules;
+            [modules[orderedIndices[currentIndex]], modules[orderedIndices[newIndex]]] = 
+                [modules[orderedIndices[newIndex]], modules[orderedIndices[currentIndex]]];
+            
+            // Atualizar ordem
+            [orderedIndices[currentIndex], orderedIndices[newIndex]] = [orderedIndices[newIndex], orderedIndices[currentIndex]];
+            
+            if (await saveData()) {
+                populateModules();
+                showWarning('Ordem dos módulos atualizada!');
+                return true;
+            }
+            return false;
+        }
+
+        async function moveQuiz(subjectId, themeId, index, direction) {
+            initializeOrder();
+            const quizKey = `${subjectId}_${themeId}`;
+            if (!data.order.quizzes[quizKey]) {
+                data.order.quizzes[quizKey] = getOrderedQuizIndices(subjectId, themeId);
+            }
+            const orderedIndices = data.order.quizzes[quizKey];
+            const currentIndex = orderedIndices.indexOf(index);
+            if (currentIndex === -1) return false;
+            
+            const newIndex = direction === 'up' ? currentIndex - 1 : currentIndex + 1;
+            if (newIndex < 0 || newIndex >= orderedIndices.length) return false;
+            
+            // Mover no array de quizzes
+            const quizzes = data.quizData[quizKey];
+            [quizzes[orderedIndices[currentIndex]], quizzes[orderedIndices[newIndex]]] = 
+                [quizzes[orderedIndices[newIndex]], quizzes[orderedIndices[currentIndex]]];
+            
+            // Atualizar ordem
+            [orderedIndices[currentIndex], orderedIndices[newIndex]] = [orderedIndices[newIndex], orderedIndices[currentIndex]];
+            
+            if (await saveData()) {
+                populateQuizzes();
+                showWarning('Ordem das questões atualizada!');
+                return true;
+            }
+            return false;
+        }
+
         // Gerenciamento de abas
         const tabButtons = document.querySelectorAll('.tab-btn');
         const tabContents = document.querySelectorAll('.tab-content');
@@ -641,10 +982,20 @@
                     showWarning('Selecione uma categoria antes de continuar.');
                     return;
                 }
-                tabButtons.forEach(b => b.classList.remove('active'));
-                tabContents.forEach(c => c.classList.remove('active'));
+                // Remover active de todos os botões e conteúdos
+                tabButtons.forEach(b => {
+                    b.classList.remove('active');
+                });
+                tabContents.forEach(c => {
+                    c.classList.remove('active');
+                });
+                // Adicionar active apenas no botão e conteúdo selecionados
                 btn.classList.add('active');
-                document.getElementById(`${btn.dataset.tab}-tab`).classList.add('active');
+                const targetTab = document.getElementById(`${btn.dataset.tab}-tab`);
+                if (targetTab) {
+                    targetTab.classList.add('active');
+                }
+                // Popular dados da aba selecionada
                 if (btn.dataset.tab === 'subjects') populateSubjects();
                 if (btn.dataset.tab === 'themes') populateThemes();
                 if (btn.dataset.tab === 'modules') populateModules();
@@ -676,15 +1027,60 @@
         }
 
         function populateSubjects() {
+            if (!subjectsContainer) {
+                console.error('subjectsContainer não encontrado');
+                return;
+            }
             subjectsContainer.innerHTML = '';
-            Object.keys(data.trainingData).forEach(id => {
+            
+            // Verificar se há dados
+            if (!data.trainingData || Object.keys(data.trainingData).length === 0) {
+                console.log('Nenhum tema encontrado');
+                return;
+            }
+            
+            initializeOrder();
+            let orderedIds = getOrderedIds(data.trainingData);
+            
+            // Verificar se há IDs ordenados
+            if (!orderedIds || orderedIds.length === 0) {
+                console.log('Nenhum ID ordenado encontrado, usando ordem natural');
+                // Usar ordem natural se não houver ordem salva
+                const naturalOrder = Object.keys(data.trainingData).map(Number).sort((a, b) => a - b);
+                if (naturalOrder.length > 0) {
+                    orderedIds = naturalOrder;
+                    if (data.order) {
+                        data.order.subjects = naturalOrder;
+                    }
+                } else {
+                    return;
+                }
+            }
+            
+            orderedIds.forEach((id, index) => {
                 const subject = data.trainingData[id];
+                if (!subject) {
+                    console.warn(`Tema com ID ${id} não encontrado`);
+                    return;
+                }
                 const card = document.createElement('div');
                 card.className = 'subject-card';
+                const isFirst = index === 0;
+                const isLast = index === orderedIds.length - 1;
                 card.innerHTML = `
                     <h3>${subject.name}</h3>
-                    <button class="edit-subject" data-id="${id}">Editar</button>
-                    <button class="delete-subject delete" data-id="${id}">Excluir</button>
+                    <div class="order-buttons">
+                        <button class="order-btn" data-id="${id}" data-direction="up" ${isFirst ? 'disabled' : ''}>
+                            <i class="fas fa-arrow-up"></i> Cima
+                        </button>
+                        <button class="order-btn" data-id="${id}" data-direction="down" ${isLast ? 'disabled' : ''}>
+                            <i class="fas fa-arrow-down"></i> Baixo
+                        </button>
+                    </div>
+                    <div class="card-actions">
+                        <button class="edit-subject" data-id="${id}">Editar</button>
+                        <button class="delete-subject delete" data-id="${id}">Excluir</button>
+                    </div>
                 `;
                 subjectsContainer.appendChild(card);
             });
@@ -700,6 +1096,13 @@
                 btn.addEventListener('click', () => {
                     console.log('Tentando excluir tema:', btn.dataset.id);
                     deleteSubject(btn.dataset.id);
+                });
+            });
+            subjectsContainer.querySelectorAll('.order-btn').forEach(btn => {
+                btn.addEventListener('click', async () => {
+                    const id = btn.dataset.id;
+                    const direction = btn.dataset.direction;
+                    await moveSubject(id, direction);
                 });
             });
         }
@@ -719,7 +1122,16 @@
             if (confirm(`Tem certeza que deseja excluir o tema "${data.trainingData[id].name}"?`)) {
                 showSpinner('subject-loading', true);
                 try {
+                    initializeOrder();
                     delete data.trainingData[id];
+                    // Remover da ordem
+                    if (data.order.subjects) {
+                        data.order.subjects = data.order.subjects.filter(subId => subId !== Number(id));
+                    }
+                    // Remover ordem de temas relacionados
+                    if (data.order.themes[id]) {
+                        delete data.order.themes[id];
+                    }
                     Object.keys(data.quizData).forEach(key => {
                         if (key.startsWith(`${id}_`)) delete data.quizData[key];
                     });
@@ -753,7 +1165,12 @@
             }
             showSpinner('subject-loading', true);
             const id = currentSubjectId || getNextId(data.trainingData);
+            const isNew = !currentSubjectId;
             data.trainingData[id] = { name, themes: data.trainingData[id]?.themes || {} };
+            initializeOrder();
+            if (isNew && !data.order.subjects.includes(Number(id))) {
+                data.order.subjects.push(Number(id));
+            }
             try {
                 if (await saveData()) {
                     console.log('Tema salvo:', id);
@@ -795,6 +1212,7 @@
             currentThemeId = null;
             themeNameInput.value = '';
             themeDeleteBtn.style.display = 'none';
+            document.getElementById('theme-migrate-container').classList.remove('active');
             populateModuleThemes();
             populateQuizThemes();
             populateThemes();
@@ -804,14 +1222,28 @@
             themesContainer.innerHTML = '';
             const subjectId = themeSubjectSelect.value;
             if (!subjectId || !data.trainingData[subjectId]) return;
-            Object.keys(data.trainingData[subjectId].themes).forEach(id => {
+            initializeOrder();
+            const orderedIds = getOrderedThemeIds(subjectId);
+            orderedIds.forEach((id, index) => {
                 const theme = data.trainingData[subjectId].themes[id];
                 const card = document.createElement('div');
                 card.className = 'theme-card';
+                const isFirst = index === 0;
+                const isLast = index === orderedIds.length - 1;
                 card.innerHTML = `
                     <h3>${theme.name}</h3>
-                    <button class="edit-theme" data-id="${id}">Editar</button>
-                    <button class="delete-theme delete" data-id="${id}">Excluir</button>
+                    <div class="order-buttons">
+                        <button class="order-btn" data-id="${id}" data-direction="up" ${isFirst ? 'disabled' : ''}>
+                            <i class="fas fa-arrow-up"></i> Cima
+                        </button>
+                        <button class="order-btn" data-id="${id}" data-direction="down" ${isLast ? 'disabled' : ''}>
+                            <i class="fas fa-arrow-down"></i> Baixo
+                        </button>
+                    </div>
+                    <div class="card-actions">
+                        <button class="edit-theme" data-id="${id}">Editar</button>
+                        <button class="delete-theme delete" data-id="${id}">Excluir</button>
+                    </div>
                 `;
                 themesContainer.appendChild(card);
             });
@@ -821,12 +1253,32 @@
                     currentThemeId = btn.dataset.id;
                     themeNameInput.value = data.trainingData[themeSubjectSelect.value].themes[currentThemeId].name;
                     themeDeleteBtn.style.display = 'block';
+                    // Mostrar container de migração e preencher select
+                    const migrateContainer = document.getElementById('theme-migrate-container');
+                    const newSubjectSelect = document.getElementById('theme-new-subject');
+                    migrateContainer.classList.add('active');
+                    newSubjectSelect.innerHTML = '<option value="">Selecione o novo tema</option>';
+                    Object.keys(data.trainingData).forEach(id => {
+                        if (id !== themeSubjectSelect.value) {
+                            const option = document.createElement('option');
+                            option.value = id;
+                            option.textContent = data.trainingData[id].name;
+                            newSubjectSelect.appendChild(option);
+                        }
+                    });
                 });
             });
             themesContainer.querySelectorAll('.delete-theme').forEach(btn => {
                 btn.addEventListener('click', () => {
                     console.log('Tentando excluir assunto:', btn.dataset.id);
                     deleteTheme(themeSubjectSelect.value, btn.dataset.id);
+                });
+            });
+            themesContainer.querySelectorAll('.order-btn').forEach(btn => {
+                btn.addEventListener('click', async () => {
+                    const id = btn.dataset.id;
+                    const direction = btn.dataset.direction;
+                    await moveTheme(themeSubjectSelect.value, id, direction);
                 });
             });
         }
@@ -846,13 +1298,24 @@
             if (confirm(`Tem certeza que deseja excluir o assunto "${data.trainingData[subjectId].themes[id].name}"?`)) {
                 showSpinner('theme-loading', true);
                 try {
+                    initializeOrder();
                     delete data.trainingData[subjectId].themes[id];
+                    // Remover da ordem
+                    if (data.order.themes[subjectId]) {
+                        data.order.themes[subjectId] = data.order.themes[subjectId].filter(themeId => themeId !== Number(id));
+                    }
+                    // Remover ordem de módulos relacionados
+                    const moduleKey = `${subjectId}_${id}`;
+                    if (data.order.modules[moduleKey]) {
+                        delete data.order.modules[moduleKey];
+                    }
                     delete data.quizData[`${subjectId}_${id}`];
                     if (await saveData()) {
                         console.log('Assunto excluído com sucesso:', id);
                         currentThemeId = null;
                         themeNameInput.value = '';
                         themeDeleteBtn.style.display = 'none';
+                        document.getElementById('theme-migrate-container').classList.remove('active');
                         populateModuleThemes();
                         populateQuizThemes();
                         populateThemes();
@@ -871,6 +1334,101 @@
             }
         }
 
+        async function migrateTheme(oldSubjectId, themeId, newSubjectId) {
+            console.log('Iniciando migração do assunto:', themeId, 'do tema:', oldSubjectId, 'para o tema:', newSubjectId);
+            if (!data.trainingData[oldSubjectId]?.themes[themeId]) {
+                console.error('Assunto não encontrado:', themeId);
+                showWarning('Assunto não encontrado.');
+                return false;
+            }
+            if (!data.trainingData[newSubjectId]) {
+                console.error('Novo tema não encontrado:', newSubjectId);
+                showWarning('Novo tema não encontrado.');
+                return false;
+            }
+            if (oldSubjectId === newSubjectId) {
+                showWarning('O assunto já está neste tema.');
+                return false;
+            }
+            if (confirm(`Tem certeza que deseja migrar o assunto "${data.trainingData[oldSubjectId].themes[themeId].name}" e todos os seus módulos e avaliações para o tema "${data.trainingData[newSubjectId].name}"?`)) {
+                showSpinner('theme-loading', true);
+                try {
+                    initializeOrder();
+                    // Copiar o assunto completo (incluindo módulos)
+                    const themeData = { ...data.trainingData[oldSubjectId].themes[themeId] };
+                    const newThemeId = getNextId(data.trainingData[newSubjectId].themes);
+                    
+                    // Adicionar o assunto no novo tema
+                    data.trainingData[newSubjectId].themes[newThemeId] = themeData;
+                    
+                    // Atualizar ordem de temas
+                    if (!data.order.themes[newSubjectId]) {
+                        data.order.themes[newSubjectId] = [];
+                    }
+                    data.order.themes[newSubjectId].push(Number(newThemeId));
+                    
+                    // Remover da ordem do tema antigo
+                    if (data.order.themes[oldSubjectId]) {
+                        data.order.themes[oldSubjectId] = data.order.themes[oldSubjectId].filter(id => id !== Number(themeId));
+                    }
+                    
+                    // Migrar as avaliações (quizData)
+                    const oldQuizKey = `${oldSubjectId}_${themeId}`;
+                    const newQuizKey = `${newSubjectId}_${newThemeId}`;
+                    if (data.quizData[oldQuizKey]) {
+                        data.quizData[newQuizKey] = [...data.quizData[oldQuizKey]];
+                        // Migrar ordem de quizzes
+                        if (data.order.quizzes[oldQuizKey]) {
+                            data.order.quizzes[newQuizKey] = [...data.order.quizzes[oldQuizKey]];
+                            delete data.order.quizzes[oldQuizKey];
+                        }
+                        delete data.quizData[oldQuizKey];
+                        console.log(`Avaliações migradas de ${oldQuizKey} para ${newQuizKey}`);
+                    }
+                    
+                    // Migrar ordem de módulos
+                    const oldModuleKey = `${oldSubjectId}_${themeId}`;
+                    const newModuleKey = `${newSubjectId}_${newThemeId}`;
+                    if (data.order.modules[oldModuleKey]) {
+                        data.order.modules[newModuleKey] = [...data.order.modules[oldModuleKey]];
+                        delete data.order.modules[oldModuleKey];
+                    }
+                    
+                    // Remover o assunto do tema antigo
+                    delete data.trainingData[oldSubjectId].themes[themeId];
+                    
+                    if (await saveData()) {
+                        console.log('Assunto migrado com sucesso:', themeId, 'para', newThemeId);
+                        showWarning(`Assunto migrado com sucesso para "${data.trainingData[newSubjectId].name}"!`);
+                        
+                        // Atualizar a interface
+                        currentThemeId = null;
+                        themeNameInput.value = '';
+                        themeDeleteBtn.style.display = 'none';
+                        document.getElementById('theme-migrate-container').classList.remove('active');
+                        populateSubjectSelects();
+                        populateModuleThemes();
+                        populateQuizThemes();
+                        populateThemes();
+                        return true;
+                    } else {
+                        console.error('Falha ao salvar migração do assunto:', themeId);
+                        showWarning('Falha ao salvar migração do assunto.');
+                        return false;
+                    }
+                } catch (error) {
+                    console.error('Erro ao migrar assunto:', error.message);
+                    showWarning(`Erro ao migrar assunto: ${error.message}`);
+                    return false;
+                } finally {
+                    showSpinner('theme-loading', false);
+                }
+            } else {
+                console.log('Migração do assunto cancelada:', themeId);
+                return false;
+            }
+        }
+
         themeSaveBtn.addEventListener('click', async () => {
             const subjectId = themeSubjectSelect.value;
             if (!subjectId) {
@@ -884,13 +1442,22 @@
             }
             showSpinner('theme-loading', true);
             const id = currentThemeId || getNextId(data.trainingData[subjectId].themes);
+            const isNew = !currentThemeId;
             data.trainingData[subjectId].themes[id] = { name, modules: data.trainingData[subjectId].themes[id]?.modules || [] };
+            initializeOrder();
+            if (!data.order.themes[subjectId]) {
+                data.order.themes[subjectId] = [];
+            }
+            if (isNew && !data.order.themes[subjectId].includes(Number(id))) {
+                data.order.themes[subjectId].push(Number(id));
+            }
             try {
                 if (await saveData()) {
                     console.log('Assunto salvo:', id);
                     currentThemeId = null;
                     themeNameInput.value = '';
                     themeDeleteBtn.style.display = 'none';
+                    document.getElementById('theme-migrate-container').classList.remove('active');
                     populateModuleThemes();
                     populateQuizThemes();
                     populateThemes();
@@ -915,6 +1482,16 @@
             }
             console.log('Botão de exclusão do formulário clicado para assunto:', currentThemeId);
             deleteTheme(subjectId, currentThemeId);
+        });
+
+        document.getElementById('theme-migrate').addEventListener('click', async () => {
+            const oldSubjectId = themeSubjectSelect.value;
+            const newSubjectId = document.getElementById('theme-new-subject').value;
+            if (!oldSubjectId || !newSubjectId || !currentThemeId) {
+                showWarning('Por favor, selecione um tema e um assunto para migrar, e escolha o novo tema de destino.');
+                return;
+            }
+            await migrateTheme(oldSubjectId, currentThemeId, newSubjectId);
         });
 
         // Aba de Módulos
@@ -951,23 +1528,39 @@
             const subjectId = moduleSubjectSelect.value;
             const themeId = moduleThemeSelect.value;
             if (!subjectId || !themeId || !data.trainingData[subjectId]?.themes[themeId]) return;
+            initializeOrder();
             const modules = data.trainingData[subjectId].themes[themeId].modules || [];
-            modules.forEach((mod, index) => {
+            const orderedIndices = getOrderedModuleIndices(subjectId, themeId);
+            orderedIndices.forEach((originalIndex, displayIndex) => {
+                const mod = modules[originalIndex];
                 const card = document.createElement('div');
                 card.className = 'module-card';
+                const isFirst = displayIndex === 0;
+                const isLast = displayIndex === orderedIndices.length - 1;
                 card.innerHTML = `
                     <h3>${mod.title}</h3>
                     <p>${mod.caption || 'Sem subtítulo'}</p>
-                    <button class="edit-module" data-index="${index}">Editar</button>
-                    <button class="delete-module delete" data-index="${index}">Excluir</button>
+                    <div class="order-buttons">
+                        <button class="order-btn" data-index="${originalIndex}" data-direction="up" ${isFirst ? 'disabled' : ''}>
+                            <i class="fas fa-arrow-up"></i> Cima
+                        </button>
+                        <button class="order-btn" data-index="${originalIndex}" data-direction="down" ${isLast ? 'disabled' : ''}>
+                            <i class="fas fa-arrow-down"></i> Baixo
+                        </button>
+                    </div>
+                    <div class="card-actions">
+                        <button class="edit-module" data-index="${originalIndex}">Editar</button>
+                        <button class="delete-module delete" data-index="${originalIndex}">Excluir</button>
+                    </div>
                 `;
                 modulesContainer.appendChild(card);
             });
             modulesContainer.querySelectorAll('.edit-module').forEach(btn => {
                 btn.addEventListener('click', () => {
-                    console.log('Editando módulo:', btn.dataset.index);
-                    currentModuleIndex = btn.dataset.index;
-                    const mod = data.trainingData[subjectId].themes[themeId].modules[currentModuleIndex];
+                    const originalIndex = parseInt(btn.dataset.index);
+                    console.log('Editando módulo:', originalIndex);
+                    currentModuleIndex = originalIndex;
+                    const mod = data.trainingData[subjectId].themes[themeId].modules[originalIndex];
                     moduleTitleInput.value = mod.title;
                     moduleCaptionInput.value = mod.caption || '';
                     moduleVideoInput.value = mod.videoId || '';
@@ -978,14 +1571,25 @@
             });
             modulesContainer.querySelectorAll('.delete-module').forEach(btn => {
                 btn.addEventListener('click', async () => {
-                    const index = btn.dataset.index;
-                    console.log('Tentando excluir módulo:', index);
-                    if (confirm(`Tem certeza que deseja excluir o módulo "${data.trainingData[subjectId].themes[themeId].modules[index].title}"?`)) {
+                    const originalIndex = parseInt(btn.dataset.index);
+                    console.log('Tentando excluir módulo:', originalIndex);
+                    if (confirm(`Tem certeza que deseja excluir o módulo "${data.trainingData[subjectId].themes[themeId].modules[originalIndex].title}"?`)) {
                         showSpinner('module-loading', true);
                         try {
-                            data.trainingData[subjectId].themes[themeId].modules.splice(index, 1);
+                            initializeOrder();
+                            const moduleKey = `${subjectId}_${themeId}`;
+                            // Remover da ordem
+                            if (data.order.modules[moduleKey]) {
+                                const orderIndex = data.order.modules[moduleKey].indexOf(originalIndex);
+                                if (orderIndex !== -1) {
+                                    data.order.modules[moduleKey].splice(orderIndex, 1);
+                                    // Ajustar índices maiores
+                                    data.order.modules[moduleKey] = data.order.modules[moduleKey].map(idx => idx > originalIndex ? idx - 1 : idx);
+                                }
+                            }
+                            data.trainingData[subjectId].themes[themeId].modules.splice(originalIndex, 1);
                             if (await saveData()) {
-                                console.log('Módulo excluído com sucesso:', index);
+                                console.log('Módulo excluído com sucesso:', originalIndex);
                                 currentModuleIndex = null;
                                 moduleTitleInput.value = '';
                                 moduleCaptionInput.value = '';
@@ -1008,8 +1612,15 @@
                             showSpinner('module-loading', false);
                         }
                     } else {
-                        console.log('Exclusão do módulo cancelada:', index);
+                        console.log('Exclusão do módulo cancelada:', originalIndex);
                     }
+                });
+            });
+            modulesContainer.querySelectorAll('.order-btn').forEach(btn => {
+                btn.addEventListener('click', async () => {
+                    const originalIndex = parseInt(btn.dataset.index);
+                    const direction = btn.dataset.direction;
+                    await moveModule(subjectId, themeId, originalIndex, direction);
                 });
             });
         }
@@ -1039,10 +1650,21 @@
             };
             showSpinner('module-loading', true);
             const modules = data.trainingData[subjectId].themes[themeId].modules || [];
+            const isNew = currentModuleIndex === null;
+            initializeOrder();
+            const moduleKey = `${subjectId}_${themeId}`;
             if (currentModuleIndex !== null) {
                 modules[currentModuleIndex] = module;
             } else {
+                const newIndex = modules.length;
                 modules.push(module);
+                // Adicionar à ordem
+                if (!data.order.modules[moduleKey]) {
+                    data.order.modules[moduleKey] = [];
+                }
+                if (isNew && !data.order.modules[moduleKey].includes(newIndex)) {
+                    data.order.modules[moduleKey].push(newIndex);
+                }
             }
             data.trainingData[subjectId].themes[themeId].modules = modules;
             try {
@@ -1155,22 +1777,38 @@
                 console.log(`Nenhuma questão encontrada para quizKey: ${quizKey}`);
                 return;
             }
+            initializeOrder();
             const quizzes = data.quizData[quizKey];
-            quizzes.forEach((quiz, index) => {
+            const orderedIndices = getOrderedQuizIndices(subjectId, themeId);
+            orderedIndices.forEach((originalIndex, displayIndex) => {
+                const quiz = quizzes[originalIndex];
                 const card = document.createElement('div');
                 card.className = 'quiz-card';
+                const isFirst = displayIndex === 0;
+                const isLast = displayIndex === orderedIndices.length - 1;
                 card.innerHTML = `
                     <h3>${quiz.question}</h3>
-                    <button class="edit-quiz" data-index="${index}">Editar</button>
-                    <button class="delete-quiz delete" data-index="${index}">Excluir</button>
+                    <div class="order-buttons">
+                        <button class="order-btn" data-index="${originalIndex}" data-direction="up" ${isFirst ? 'disabled' : ''}>
+                            <i class="fas fa-arrow-up"></i> Cima
+                        </button>
+                        <button class="order-btn" data-index="${originalIndex}" data-direction="down" ${isLast ? 'disabled' : ''}>
+                            <i class="fas fa-arrow-down"></i> Baixo
+                        </button>
+                    </div>
+                    <div class="card-actions">
+                        <button class="edit-quiz" data-index="${originalIndex}">Editar</button>
+                        <button class="delete-quiz delete" data-index="${originalIndex}">Excluir</button>
+                    </div>
                 `;
                 quizzesContainer.appendChild(card);
             });
             quizzesContainer.querySelectorAll('.edit-quiz').forEach(btn => {
                 btn.addEventListener('click', () => {
-                    console.log('Editando questão:', btn.dataset.index);
-                    currentQuizIndex = btn.dataset.index;
-                    const quiz = data.quizData[quizKey][currentQuizIndex];
+                    const originalIndex = parseInt(btn.dataset.index);
+                    console.log('Editando questão:', originalIndex);
+                    currentQuizIndex = originalIndex;
+                    const quiz = data.quizData[quizKey][originalIndex];
                     quizQuestionInput.value = quiz.question;
                     quizOption1Input.value = quiz.options[0];
                     quizOption2Input.value = quiz.options[1];
@@ -1182,17 +1820,27 @@
             });
             quizzesContainer.querySelectorAll('.delete-quiz').forEach(btn => {
                 btn.addEventListener('click', async () => {
-                    const index = btn.dataset.index;
-                    console.log('Tentando excluir questão:', index, 'para quizKey:', quizKey);
-                    if (!data.quizData[quizKey][index]) {
-                        console.error('Questão não encontrada:', index, quizKey);
+                    const originalIndex = parseInt(btn.dataset.index);
+                    console.log('Tentando excluir questão:', originalIndex, 'para quizKey:', quizKey);
+                    if (!data.quizData[quizKey][originalIndex]) {
+                        console.error('Questão não encontrada:', originalIndex, quizKey);
                         showWarning('Questão não encontrada.');
                         return;
                     }
-                    if (confirm(`Tem certeza que deseja excluir a questão "${data.quizData[quizKey][index].question}"?`)) {
+                    if (confirm(`Tem certeza que deseja excluir a questão "${data.quizData[quizKey][originalIndex].question}"?`)) {
                         showSpinner('quiz-loading', true);
                         try {
-                            data.quizData[quizKey].splice(index, 1);
+                            initializeOrder();
+                            // Remover da ordem
+                            if (data.order.quizzes[quizKey]) {
+                                const orderIndex = data.order.quizzes[quizKey].indexOf(originalIndex);
+                                if (orderIndex !== -1) {
+                                    data.order.quizzes[quizKey].splice(orderIndex, 1);
+                                    // Ajustar índices maiores
+                                    data.order.quizzes[quizKey] = data.order.quizzes[quizKey].map(idx => idx > originalIndex ? idx - 1 : idx);
+                                }
+                            }
+                            data.quizData[quizKey].splice(originalIndex, 1);
                             if (data.quizData[quizKey].length === 0) {
                                 delete data.quizData[quizKey];
                                 console.log(`QuizKey ${quizKey} removido, pois estava vazio`);
@@ -1222,8 +1870,15 @@
                             showSpinner('quiz-loading', false);
                         }
                     } else {
-                        console.log('Exclusão da questão cancelada:', index, quizKey);
+                        console.log('Exclusão da questão cancelada:', originalIndex, quizKey);
                     }
+                });
+            });
+            quizzesContainer.querySelectorAll('.order-btn').forEach(btn => {
+                btn.addEventListener('click', async () => {
+                    const originalIndex = parseInt(btn.dataset.index);
+                    const direction = btn.dataset.direction;
+                    await moveQuiz(subjectId, themeId, originalIndex, direction);
                 });
             });
         }
@@ -1253,11 +1908,21 @@
                 options: [option1, option2, option3, option4],
                 correct
             };
+            initializeOrder();
+            const isNew = currentQuizIndex === null;
             try {
                 if (currentQuizIndex !== null) {
                     data.quizData[quizKey][currentQuizIndex] = quiz;
                 } else {
+                    const newIndex = data.quizData[quizKey].length;
                     data.quizData[quizKey].push(quiz);
+                    // Adicionar à ordem
+                    if (!data.order.quizzes[quizKey]) {
+                        data.order.quizzes[quizKey] = [];
+                    }
+                    if (isNew && !data.order.quizzes[quizKey].includes(newIndex)) {
+                        data.order.quizzes[quizKey].push(newIndex);
+                    }
                 }
                 if (await saveData()) {
                     console.log('Questão salva:', currentQuizIndex !== null ? currentQuizIndex : 'nova', quizKey);
@@ -1341,6 +2006,13 @@
         window.onload = () => {
             showModal();
         };
+
+        // Inicializar abas quando o DOM estiver pronto
+        if (document.readyState === 'loading') {
+            document.addEventListener('DOMContentLoaded', initializeTabs);
+        } else {
+            initializeTabs();
+        }
 
         document.onkeydown = function(event) {
     if (
