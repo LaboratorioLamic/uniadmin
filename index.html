@@ -803,54 +803,99 @@
 
         // Funções auxiliares para ordenação
         function getOrderedIds(obj) {
-            // Se não houver ordem salva ou se estiver vazia, usa a ordem atual das chaves
-            if (!data.order || !data.order.subjects || data.order.subjects.length === 0) {
-                const naturalOrder = Object.keys(obj).map(Number).sort((a, b) => a - b);
-                // Se houver ordem salva mas vazia, inicializar com a ordem natural
-                if (data.order && data.order.subjects && data.order.subjects.length === 0) {
-                    data.order.subjects = naturalOrder;
-                }
-                return naturalOrder;
-            }
-            // Retorna a ordem salva, filtrando IDs que não existem mais
-            const filteredOrder = data.order.subjects.filter(id => obj[id] !== undefined);
-            // Se após filtrar não sobrar nada, usar ordem natural
-            if (filteredOrder.length === 0) {
+            initializeOrder();
+            // Sempre usar a ordem do JSON (data.order.subjects)
+            // Se não houver ordem salva ou se estiver vazia, inicializar com a ordem natural
+            if (!data.order.subjects || data.order.subjects.length === 0) {
                 const naturalOrder = Object.keys(obj).map(Number).sort((a, b) => a - b);
                 data.order.subjects = naturalOrder;
                 return naturalOrder;
             }
-            return filteredOrder;
+            // Retorna a ordem do JSON, filtrando IDs que não existem mais e adicionando novos
+            const existingIds = Object.keys(obj).map(Number);
+            const savedOrder = data.order.subjects.filter(id => existingIds.includes(id));
+            // Adicionar IDs novos que não estão na ordem salva
+            existingIds.forEach(id => {
+                if (!savedOrder.includes(id)) {
+                    savedOrder.push(id);
+                }
+            });
+            // Atualizar a ordem no JSON
+            data.order.subjects = savedOrder;
+            return savedOrder;
         }
 
         function getOrderedThemeIds(subjectId) {
+            initializeOrder();
             const themes = data.trainingData[subjectId]?.themes || {};
-            if (!data.order || !data.order.themes || !data.order.themes[subjectId]) {
-                return Object.keys(themes).map(Number).sort((a, b) => a - b);
+            // Sempre usar a ordem do JSON
+            if (!data.order.themes[subjectId] || data.order.themes[subjectId].length === 0) {
+                const naturalOrder = Object.keys(themes).map(Number).sort((a, b) => a - b);
+                data.order.themes[subjectId] = naturalOrder;
+                return naturalOrder;
             }
-            return data.order.themes[subjectId].filter(id => themes[id] !== undefined);
+            // Retorna a ordem do JSON, filtrando IDs que não existem mais e adicionando novos
+            const existingIds = Object.keys(themes).map(Number);
+            const savedOrder = data.order.themes[subjectId].filter(id => existingIds.includes(id));
+            // Adicionar IDs novos que não estão na ordem salva
+            existingIds.forEach(id => {
+                if (!savedOrder.includes(id)) {
+                    savedOrder.push(id);
+                }
+            });
+            // Atualizar a ordem no JSON
+            data.order.themes[subjectId] = savedOrder;
+            return savedOrder;
         }
 
         function getOrderedModuleIndices(subjectId, themeId) {
+            initializeOrder();
             const modules = data.trainingData[subjectId]?.themes[themeId]?.modules || [];
-            if (!data.order || !data.order.modules || !data.order.modules[`${subjectId}_${themeId}`]) {
-                return modules.map((_, i) => i);
+            const moduleKey = `${subjectId}_${themeId}`;
+            // Sempre usar a ordem do JSON
+            if (!data.order.modules[moduleKey] || data.order.modules[moduleKey].length === 0) {
+                const naturalOrder = modules.map((_, i) => i);
+                data.order.modules[moduleKey] = naturalOrder;
+                return naturalOrder;
             }
-            const savedOrder = data.order.modules[`${subjectId}_${themeId}`];
-            return savedOrder.filter(idx => idx < modules.length);
+            // Retorna a ordem do JSON, filtrando índices inválidos e ajustando
+            const savedOrder = data.order.modules[moduleKey].filter(idx => idx >= 0 && idx < modules.length);
+            // Garantir que todos os índices estejam na ordem
+            for (let i = 0; i < modules.length; i++) {
+                if (!savedOrder.includes(i)) {
+                    savedOrder.push(i);
+                }
+            }
+            // Atualizar a ordem no JSON
+            data.order.modules[moduleKey] = savedOrder;
+            return savedOrder;
         }
 
         function getOrderedQuizIndices(subjectId, themeId) {
+            initializeOrder();
             const quizKey = `${subjectId}_${themeId}`;
             const quizzes = data.quizData[quizKey] || [];
-            if (!data.order || !data.order.quizzes || !data.order.quizzes[quizKey]) {
-                return quizzes.map((_, i) => i);
+            // Sempre usar a ordem do JSON
+            if (!data.order.quizzes[quizKey] || data.order.quizzes[quizKey].length === 0) {
+                const naturalOrder = quizzes.map((_, i) => i);
+                data.order.quizzes[quizKey] = naturalOrder;
+                return naturalOrder;
             }
-            const savedOrder = data.order.quizzes[quizKey];
-            return savedOrder.filter(idx => idx < quizzes.length);
+            // Retorna a ordem do JSON, filtrando índices inválidos e ajustando
+            const savedOrder = data.order.quizzes[quizKey].filter(idx => idx >= 0 && idx < quizzes.length);
+            // Garantir que todos os índices estejam na ordem
+            for (let i = 0; i < quizzes.length; i++) {
+                if (!savedOrder.includes(i)) {
+                    savedOrder.push(i);
+                }
+            }
+            // Atualizar a ordem no JSON
+            data.order.quizzes[quizKey] = savedOrder;
+            return savedOrder;
         }
 
         function initializeOrder() {
+            // Garantir que data.order existe
             if (!data.order) {
                 data.order = {
                     subjects: [],
@@ -864,28 +909,47 @@
             if (!data.order.modules) data.order.modules = {};
             if (!data.order.quizzes) data.order.quizzes = {};
             
-            // Se há dados de temas mas a ordem está vazia, inicializar com a ordem natural
-            if (data.trainingData && Object.keys(data.trainingData).length > 0 && data.order.subjects.length === 0) {
-                data.order.subjects = Object.keys(data.trainingData).map(Number).sort((a, b) => a - b);
+            // Inicializar ordem de subjects se necessário (mas não sobrescrever se já existir)
+            if (data.trainingData && Object.keys(data.trainingData).length > 0) {
+                const existingIds = Object.keys(data.trainingData).map(Number);
+                if (data.order.subjects.length === 0) {
+                    // Se não há ordem, criar com ordem natural
+                    data.order.subjects = existingIds.sort((a, b) => a - b);
+                } else {
+                    // Se há ordem, garantir que todos os IDs existentes estejam nela
+                    const missingIds = existingIds.filter(id => !data.order.subjects.includes(id));
+                    if (missingIds.length > 0) {
+                        data.order.subjects = [...data.order.subjects, ...missingIds];
+                    }
+                }
             }
         }
 
         async function moveSubject(id, direction) {
             initializeOrder();
-            const orderedIds = getOrderedIds(data.trainingData);
+            // Usar a ordem do JSON
+            let orderedIds = [...data.order.subjects];
             const currentIndex = orderedIds.indexOf(Number(id));
-            if (currentIndex === -1) return false;
+            if (currentIndex === -1) {
+                // Se não estiver na ordem, adicionar
+                orderedIds.push(Number(id));
+                const newIndex = orderedIds.length - 1;
+                if (newIndex === 0) return false;
+                [orderedIds[newIndex - 1], orderedIds[newIndex]] = [orderedIds[newIndex], orderedIds[newIndex - 1]];
+            } else {
+                const newIndex = direction === 'up' ? currentIndex - 1 : currentIndex + 1;
+                if (newIndex < 0 || newIndex >= orderedIds.length) return false;
+                [orderedIds[currentIndex], orderedIds[newIndex]] = [orderedIds[newIndex], orderedIds[currentIndex]];
+            }
             
-            const newIndex = direction === 'up' ? currentIndex - 1 : currentIndex + 1;
-            if (newIndex < 0 || newIndex >= orderedIds.length) return false;
-            
-            [orderedIds[currentIndex], orderedIds[newIndex]] = [orderedIds[newIndex], orderedIds[currentIndex]];
+            // Atualizar a ordem no JSON
             data.order.subjects = orderedIds;
             
+            // Salvar no JSON
             if (await saveData()) {
                 populateSubjectSelects();
                 populateSubjects();
-                showWarning('Ordem dos temas atualizada!');
+                showWarning('Ordem dos temas atualizada e salva no JSON!');
                 return true;
             }
             return false;
@@ -893,23 +957,34 @@
 
         async function moveTheme(subjectId, themeId, direction) {
             initializeOrder();
+            // Garantir que a ordem existe
             if (!data.order.themes[subjectId]) {
                 data.order.themes[subjectId] = getOrderedThemeIds(subjectId);
             }
-            const orderedIds = data.order.themes[subjectId];
+            // Usar a ordem do JSON
+            let orderedIds = [...data.order.themes[subjectId]];
             const currentIndex = orderedIds.indexOf(Number(themeId));
-            if (currentIndex === -1) return false;
+            if (currentIndex === -1) {
+                // Se não estiver na ordem, adicionar
+                orderedIds.push(Number(themeId));
+                const newIndex = orderedIds.length - 1;
+                if (newIndex === 0) return false;
+                [orderedIds[newIndex - 1], orderedIds[newIndex]] = [orderedIds[newIndex], orderedIds[newIndex - 1]];
+            } else {
+                const newIndex = direction === 'up' ? currentIndex - 1 : currentIndex + 1;
+                if (newIndex < 0 || newIndex >= orderedIds.length) return false;
+                [orderedIds[currentIndex], orderedIds[newIndex]] = [orderedIds[newIndex], orderedIds[currentIndex]];
+            }
             
-            const newIndex = direction === 'up' ? currentIndex - 1 : currentIndex + 1;
-            if (newIndex < 0 || newIndex >= orderedIds.length) return false;
+            // Atualizar a ordem no JSON
+            data.order.themes[subjectId] = orderedIds;
             
-            [orderedIds[currentIndex], orderedIds[newIndex]] = [orderedIds[newIndex], orderedIds[currentIndex]];
-            
+            // Salvar no JSON
             if (await saveData()) {
                 populateModuleThemes();
                 populateQuizThemes();
                 populateThemes();
-                showWarning('Ordem dos assuntos atualizada!');
+                showWarning('Ordem dos assuntos atualizada e salva no JSON!');
                 return true;
             }
             return false;
@@ -918,27 +993,32 @@
         async function moveModule(subjectId, themeId, index, direction) {
             initializeOrder();
             const moduleKey = `${subjectId}_${themeId}`;
+            // Garantir que a ordem existe
             if (!data.order.modules[moduleKey]) {
                 data.order.modules[moduleKey] = getOrderedModuleIndices(subjectId, themeId);
             }
-            const orderedIndices = data.order.modules[moduleKey];
+            // Usar a ordem do JSON
+            let orderedIndices = [...data.order.modules[moduleKey]];
             const currentIndex = orderedIndices.indexOf(index);
             if (currentIndex === -1) return false;
             
             const newIndex = direction === 'up' ? currentIndex - 1 : currentIndex + 1;
             if (newIndex < 0 || newIndex >= orderedIndices.length) return false;
             
-            // Mover no array de módulos
+            // Mover no array de módulos (usar os índices da ordem)
             const modules = data.trainingData[subjectId].themes[themeId].modules;
-            [modules[orderedIndices[currentIndex]], modules[orderedIndices[newIndex]]] = 
-                [modules[orderedIndices[newIndex]], modules[orderedIndices[currentIndex]]];
+            const oldIndex = orderedIndices[currentIndex];
+            const newIndexValue = orderedIndices[newIndex];
+            [modules[oldIndex], modules[newIndexValue]] = [modules[newIndexValue], modules[oldIndex]];
             
-            // Atualizar ordem
+            // Atualizar ordem no JSON
             [orderedIndices[currentIndex], orderedIndices[newIndex]] = [orderedIndices[newIndex], orderedIndices[currentIndex]];
+            data.order.modules[moduleKey] = orderedIndices;
             
+            // Salvar no JSON
             if (await saveData()) {
                 populateModules();
-                showWarning('Ordem dos módulos atualizada!');
+                showWarning('Ordem dos módulos atualizada e salva no JSON!');
                 return true;
             }
             return false;
@@ -947,27 +1027,32 @@
         async function moveQuiz(subjectId, themeId, index, direction) {
             initializeOrder();
             const quizKey = `${subjectId}_${themeId}`;
+            // Garantir que a ordem existe
             if (!data.order.quizzes[quizKey]) {
                 data.order.quizzes[quizKey] = getOrderedQuizIndices(subjectId, themeId);
             }
-            const orderedIndices = data.order.quizzes[quizKey];
+            // Usar a ordem do JSON
+            let orderedIndices = [...data.order.quizzes[quizKey]];
             const currentIndex = orderedIndices.indexOf(index);
             if (currentIndex === -1) return false;
             
             const newIndex = direction === 'up' ? currentIndex - 1 : currentIndex + 1;
             if (newIndex < 0 || newIndex >= orderedIndices.length) return false;
             
-            // Mover no array de quizzes
+            // Mover no array de quizzes (usar os índices da ordem)
             const quizzes = data.quizData[quizKey];
-            [quizzes[orderedIndices[currentIndex]], quizzes[orderedIndices[newIndex]]] = 
-                [quizzes[orderedIndices[newIndex]], quizzes[orderedIndices[currentIndex]]];
+            const oldIndex = orderedIndices[currentIndex];
+            const newIndexValue = orderedIndices[newIndex];
+            [quizzes[oldIndex], quizzes[newIndexValue]] = [quizzes[newIndexValue], quizzes[oldIndex]];
             
-            // Atualizar ordem
+            // Atualizar ordem no JSON
             [orderedIndices[currentIndex], orderedIndices[newIndex]] = [orderedIndices[newIndex], orderedIndices[currentIndex]];
+            data.order.quizzes[quizKey] = orderedIndices;
             
+            // Salvar no JSON
             if (await saveData()) {
                 populateQuizzes();
-                showWarning('Ordem das questões atualizada!');
+                showWarning('Ordem das questões atualizada e salva no JSON!');
                 return true;
             }
             return false;
@@ -1846,7 +1931,7 @@
                                 console.log(`QuizKey ${quizKey} removido, pois estava vazio`);
                             }
                             if (await saveData()) {
-                                console.log('Questão excluída com sucesso:', index, quizKey);
+                                console.log('Questão excluída com sucesso:', originalIndex, quizKey);
                                 currentQuizIndex = null;
                                 quizQuestionInput.value = '';
                                 quizOption1Input.value = '';
