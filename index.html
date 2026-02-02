@@ -738,20 +738,36 @@
         });
 
         function initializeOrderFields() {
-            // Inicializar order para subjects existentes
-            Object.keys(data.trainingData).forEach((subjectId, index) => {
-                if (data.trainingData[subjectId].order === undefined) {
-                    data.trainingData[subjectId].order = index + 1;
+            // Inicializar estrutura order se não existir
+            if (!data.order) {
+                data.order = {
+                    subjects: [],
+                    themes: {},
+                    modules: {}
+                };
+            }
+            
+            // Inicializar subjects order se estiver vazio
+            if (data.order.subjects.length === 0) {
+                data.order.subjects = Object.keys(data.trainingData);
+            }
+            
+            // Inicializar themes order para cada subject
+            Object.keys(data.trainingData).forEach(subjectId => {
+                if (!data.order.themes[subjectId]) {
+                    data.order.themes[subjectId] = Object.keys(data.trainingData[subjectId].themes || {});
                 }
                 
-                // Inicializar order para themes existentes
-                if (data.trainingData[subjectId].themes) {
-                    Object.keys(data.trainingData[subjectId].themes).forEach((themeId, themeIndex) => {
-                        if (data.trainingData[subjectId].themes[themeId].order === undefined) {
-                            data.trainingData[subjectId].themes[themeId].order = themeIndex + 1;
-                        }
-                    });
-                }
+                // Inicializar modules order para cada theme
+                Object.keys(data.trainingData[subjectId].themes || {}).forEach(themeId => {
+                    if (!data.order.modules[subjectId]) {
+                        data.order.modules[subjectId] = {};
+                    }
+                    if (!data.order.modules[subjectId][themeId]) {
+                        const moduleCount = data.trainingData[subjectId].themes[themeId].modules?.length || 0;
+                        data.order.modules[subjectId][themeId] = Array.from({length: moduleCount}, (_, i) => i);
+                    }
+                });
             });
         }
 
@@ -825,28 +841,17 @@
         }
 
         async function moveSubject(id, direction) {
-            const subjects = Object.keys(data.trainingData);
-            const currentOrder = data.trainingData[id].order || 0;
+            if (!data.order?.subjects) return false;
             
-            // Find all subjects with their current order
-            const subjectsWithOrder = subjects.map(subjectId => ({
-                id: subjectId,
-                order: data.trainingData[subjectId].order || 0
-            }));
-            
-            // Sort by current order
-            subjectsWithOrder.sort((a, b) => a.order - b.order);
-            
-            const currentIndex = subjectsWithOrder.findIndex(s => s.id === id);
+            const currentIndex = data.order.subjects.indexOf(id);
             if (currentIndex === -1) return false;
             
             const newIndex = direction === 'up' ? currentIndex - 1 : currentIndex + 1;
-            if (newIndex < 0 || newIndex >= subjectsWithOrder.length) return false;
+            if (newIndex < 0 || newIndex >= data.order.subjects.length) return false;
             
-            // Swap orders
-            const targetSubject = subjectsWithOrder[newIndex];
-            data.trainingData[id].order = targetSubject.order;
-            data.trainingData[targetSubject.id].order = currentOrder;
+            // Swap in the order array
+            [data.order.subjects[currentIndex], data.order.subjects[newIndex]] = 
+            [data.order.subjects[newIndex], data.order.subjects[currentIndex]];
             
             if (await saveData()) {
                 populateSubjectSelects();
@@ -858,30 +863,17 @@
         }
 
         async function moveTheme(subjectId, themeId, direction) {
-            if (!data.trainingData[subjectId]?.themes) return false;
+            if (!data.order?.themes?.[subjectId]) return false;
             
-            const themes = Object.keys(data.trainingData[subjectId].themes);
-            const currentOrder = data.trainingData[subjectId].themes[themeId].order || 0;
-            
-            // Find all themes with their current order
-            const themesWithOrder = themes.map(themeIdKey => ({
-                id: themeIdKey,
-                order: data.trainingData[subjectId].themes[themeIdKey].order || 0
-            }));
-            
-            // Sort by current order
-            themesWithOrder.sort((a, b) => a.order - b.order);
-            
-            const currentIndex = themesWithOrder.findIndex(t => t.id === themeId);
+            const currentIndex = data.order.themes[subjectId].indexOf(themeId);
             if (currentIndex === -1) return false;
             
             const newIndex = direction === 'up' ? currentIndex - 1 : currentIndex + 1;
-            if (newIndex < 0 || newIndex >= themesWithOrder.length) return false;
+            if (newIndex < 0 || newIndex >= data.order.themes[subjectId].length) return false;
             
-            // Swap orders
-            const targetTheme = themesWithOrder[newIndex];
-            data.trainingData[subjectId].themes[themeId].order = targetTheme.order;
-            data.trainingData[subjectId].themes[targetTheme.id].order = currentOrder;
+            // Swap in the order array
+            [data.order.themes[subjectId][currentIndex], data.order.themes[subjectId][newIndex]] = 
+            [data.order.themes[subjectId][newIndex], data.order.themes[subjectId][currentIndex]];
             
             if (await saveData()) {
                 populateModuleThemes();
@@ -894,15 +886,18 @@
         }
 
         async function moveModule(subjectId, themeId, index, direction) {
-            if (!data.trainingData[subjectId]?.themes[themeId]?.modules) return false;
+            if (!data.order?.modules?.[subjectId]?.[themeId]) return false;
             
-            const modules = data.trainingData[subjectId].themes[themeId].modules;
             const currentIndex = index;
-            
             const newIndex = direction === 'up' ? currentIndex - 1 : currentIndex + 1;
-            if (newIndex < 0 || newIndex >= modules.length) return false;
+            if (newIndex < 0 || newIndex >= data.order.modules[subjectId][themeId].length) return false;
             
-            // Swap modules in the array
+            // Swap in the order array
+            [data.order.modules[subjectId][themeId][currentIndex], data.order.modules[subjectId][themeId][newIndex]] = 
+            [data.order.modules[subjectId][themeId][newIndex], data.order.modules[subjectId][themeId][currentIndex]];
+            
+            // Also swap in the actual modules array
+            const modules = data.trainingData[subjectId].themes[themeId].modules || [];
             [modules[currentIndex], modules[newIndex]] = [modules[newIndex], modules[currentIndex]];
             
             if (await saveData()) {
@@ -1000,12 +995,13 @@
                 return;
             }
             
-            // Ordenar pelo campo order
-            const orderedIds = Object.keys(data.trainingData).sort((a, b) => {
-                const orderA = data.trainingData[a].order || 0;
-                const orderB = data.trainingData[b].order || 0;
-                return orderA - orderB;
-            });
+            // Usar ordem do array data.order.subjects se existir, senão usar ordem alfabética
+            let orderedIds;
+            if (data.order?.subjects && data.order.subjects.length > 0) {
+                orderedIds = data.order.subjects.filter(id => data.trainingData[id]);
+            } else {
+                orderedIds = Object.keys(data.trainingData).sort();
+            }
             
             orderedIds.forEach((id, index) => {
                 const subject = data.trainingData[id];
@@ -1073,6 +1069,15 @@
                 showSpinner('subject-loading', true);
                 try {
                     delete data.trainingData[id];
+                    
+                    // Remover do order
+                    if (data.order?.subjects) {
+                        const subjectIndex = data.order.subjects.indexOf(id);
+                        if (subjectIndex > -1) {
+                            data.order.subjects.splice(subjectIndex, 1);
+                        }
+                    }
+                    
                     Object.keys(data.quizData).forEach(key => {
                         if (key.startsWith(`${id}_`)) delete data.quizData[key];
                     });
@@ -1107,16 +1112,17 @@
             showSpinner('subject-loading', true);
             const id = currentSubjectId || getNextId(data.trainingData);
             const isNew = !currentSubjectId;
-            // Calcular order para novo tema
-            let order;
+            
+            data.trainingData[id] = { id, name, themes: data.trainingData[id]?.themes || {} };
+            
+            // Adicionar ao order se for novo
             if (isNew) {
-                const existingOrders = Object.values(data.trainingData).map(s => s.order || 0);
-                order = existingOrders.length > 0 ? Math.max(...existingOrders) + 1 : 1;
-            } else {
-                order = data.trainingData[id]?.order || 0;
+                if (!data.order) {
+                    data.order = { subjects: [], themes: {}, modules: {} };
+                }
+                data.order.subjects.push(id);
             }
             
-            data.trainingData[id] = { name, themes: data.trainingData[id]?.themes || {}, order };
             try {
                 if (await saveData()) {
                     console.log('Tema salvo:', id);
@@ -1169,12 +1175,13 @@
             const subjectId = themeSubjectSelect.value;
             if (!subjectId || !data.trainingData[subjectId]) return;
             
-            // Ordenar pelo campo order
-            const orderedIds = Object.keys(data.trainingData[subjectId].themes).sort((a, b) => {
-                const orderA = data.trainingData[subjectId].themes[a].order || 0;
-                const orderB = data.trainingData[subjectId].themes[b].order || 0;
-                return orderA - orderB;
-            });
+            // Usar ordem do array data.order.themes[subjectId] se existir, senão usar ordem alfabética
+            let orderedIds;
+            if (data.order?.themes?.[subjectId] && data.order.themes[subjectId].length > 0) {
+                orderedIds = data.order.themes[subjectId].filter(id => data.trainingData[subjectId].themes[id]);
+            } else {
+                orderedIds = Object.keys(data.trainingData[subjectId].themes || {}).sort();
+            }
             
             orderedIds.forEach((id, index) => {
                 const theme = data.trainingData[subjectId].themes[id];
@@ -1251,6 +1258,15 @@
                 showSpinner('theme-loading', true);
                 try {
                     delete data.trainingData[subjectId].themes[id];
+                    
+                    // Remover do order
+                    if (data.order?.themes?.[subjectId]) {
+                        const themeIndex = data.order.themes[subjectId].indexOf(id);
+                        if (themeIndex > -1) {
+                            data.order.themes[subjectId].splice(themeIndex, 1);
+                        }
+                    }
+                    
                     delete data.quizData[`${subjectId}_${id}`];
                     if (await saveData()) {
                         console.log('Assunto excluído com sucesso:', id);
@@ -1302,6 +1318,15 @@
                     // Adicionar o assunto no novo tema
                     data.trainingData[newSubjectId].themes[newThemeId] = themeData;
                     
+                    // Adicionar ao order do novo tema
+                    if (!data.order) {
+                        data.order = { subjects: [], themes: {}, modules: {} };
+                    }
+                    if (!data.order.themes[newSubjectId]) {
+                        data.order.themes[newSubjectId] = [];
+                    }
+                    data.order.themes[newSubjectId].push(newThemeId);
+                    
                     // Migrar as avaliações (quizData)
                     const oldQuizKey = `${oldSubjectId}_${themeId}`;
                     const newQuizKey = `${newSubjectId}_${newThemeId}`;
@@ -1311,8 +1336,25 @@
                         console.log(`Avaliações migradas de ${oldQuizKey} para ${newQuizKey}`);
                     }
                     
+                    // Migrar ordem dos módulos se existir
+                    if (data.order?.modules?.[oldSubjectId]?.[themeId]) {
+                        if (!data.order.modules[newSubjectId]) {
+                            data.order.modules[newSubjectId] = {};
+                        }
+                        data.order.modules[newSubjectId][newThemeId] = [...data.order.modules[oldSubjectId][themeId]];
+                        delete data.order.modules[oldSubjectId][themeId];
+                    }
+                    
                     // Remover o assunto do tema antigo
                     delete data.trainingData[oldSubjectId].themes[themeId];
+                    
+                    // Remover do order do tema antigo
+                    if (data.order?.themes?.[oldSubjectId]) {
+                        const themeIndex = data.order.themes[oldSubjectId].indexOf(themeId);
+                        if (themeIndex > -1) {
+                            data.order.themes[oldSubjectId].splice(themeIndex, 1);
+                        }
+                    }
                     
                     if (await saveData()) {
                         console.log('Assunto migrado com sucesso:', themeId, 'para', newThemeId);
@@ -1360,16 +1402,20 @@
             showSpinner('theme-loading', true);
             const id = currentThemeId || getNextId(data.trainingData[subjectId].themes);
             const isNew = !currentThemeId;
-            // Calcular order para novo assunto
-            let order;
+            
+            data.trainingData[subjectId].themes[id] = { id, name, modules: data.trainingData[subjectId].themes[id]?.modules || [] };
+            
+            // Adicionar ao order se for novo
             if (isNew) {
-                const existingOrders = Object.values(data.trainingData[subjectId].themes).map(t => t.order || 0);
-                order = existingOrders.length > 0 ? Math.max(...existingOrders) + 1 : 1;
-            } else {
-                order = data.trainingData[subjectId].themes[id]?.order || 0;
+                if (!data.order) {
+                    data.order = { subjects: [], themes: {}, modules: {} };
+                }
+                if (!data.order.themes[subjectId]) {
+                    data.order.themes[subjectId] = [];
+                }
+                data.order.themes[subjectId].push(id);
             }
             
-            data.trainingData[subjectId].themes[id] = { name, modules: data.trainingData[subjectId].themes[id]?.modules || [], order };
             try {
                 if (await saveData()) {
                     console.log('Assunto salvo:', id);
@@ -1450,11 +1496,20 @@
             
             const modules = data.trainingData[subjectId].themes[themeId].modules || [];
             
-            modules.forEach((mod, index) => {
+            // Usar ordem do array data.order.modules[subjectId][themeId] se existir, senão usar ordem natural
+            let orderedModules;
+            if (data.order?.modules?.[subjectId]?.[themeId] && data.order.modules[subjectId][themeId].length > 0) {
+                const orderArray = data.order.modules[subjectId][themeId];
+                orderedModules = orderArray.map(index => modules[index]).filter(m => m);
+            } else {
+                orderedModules = modules;
+            }
+            
+            orderedModules.forEach((mod, index) => {
                 const card = document.createElement('div');
                 card.className = 'module-card';
                 const isFirst = index === 0;
-                const isLast = index === modules.length - 1;
+                const isLast = index === orderedModules.length - 1;
                 card.innerHTML = `
                     <h3>${mod.title}</h3>
                     <p>${mod.caption || 'Sem subtítulo'}</p>
@@ -1478,7 +1533,7 @@
                     const index = parseInt(btn.dataset.index);
                     console.log('Editando módulo:', index);
                     currentModuleIndex = index;
-                    const mod = data.trainingData[subjectId].themes[themeId].modules[index];
+                    const mod = orderedModules[index];
                     moduleTitleInput.value = mod.title;
                     moduleCaptionInput.value = mod.caption || '';
                     moduleVideoInput.value = mod.videoId || '';
@@ -1491,10 +1546,20 @@
                 btn.addEventListener('click', async () => {
                     const index = parseInt(btn.dataset.index);
                     console.log('Tentando excluir módulo:', index);
-                    if (confirm(`Tem certeza que deseja excluir o módulo "${data.trainingData[subjectId].themes[themeId].modules[index].title}"?`)) {
+                    if (confirm(`Tem certeza que deseja excluir o módulo "${orderedModules[index].title}"?`)) {
                         showSpinner('module-loading', true);
                         try {
-                            data.trainingData[subjectId].themes[themeId].modules.splice(index, 1);
+                            // Find the actual index in the modules array
+                            const actualIndex = modules.indexOf(orderedModules[index]);
+                            modules.splice(actualIndex, 1);
+                            
+                            // Update order array
+                            if (data.order?.modules?.[subjectId]?.[themeId]) {
+                                data.order.modules[subjectId][themeId] = data.order.modules[subjectId][themeId]
+                                    .filter(i => i !== actualIndex)
+                                    .map(i => i > actualIndex ? i - 1 : i);
+                            }
+                            
                             if (await saveData()) {
                                 console.log('Módulo excluído com sucesso:', index);
                                 currentModuleIndex = null;
@@ -1527,7 +1592,9 @@
                 btn.addEventListener('click', async () => {
                     const index = parseInt(btn.dataset.index);
                     const direction = btn.dataset.direction;
-                    await moveModule(subjectId, themeId, index, direction);
+                    // Find the actual index in the modules array
+                    const actualIndex = modules.indexOf(orderedModules[index]);
+                    await moveModule(subjectId, themeId, actualIndex, direction);
                 });
             });
         }
@@ -1558,11 +1625,25 @@
             showSpinner('module-loading', true);
             const modules = data.trainingData[subjectId].themes[themeId].modules || [];
             const isNew = currentModuleIndex === null;
+            
             if (currentModuleIndex !== null) {
                 modules[currentModuleIndex] = module;
             } else {
                 modules.push(module);
+                
+                // Adicionar ao order se for novo
+                if (!data.order) {
+                    data.order = { subjects: [], themes: {}, modules: {} };
+                }
+                if (!data.order.modules[subjectId]) {
+                    data.order.modules[subjectId] = {};
+                }
+                if (!data.order.modules[subjectId][themeId]) {
+                    data.order.modules[subjectId][themeId] = [];
+                }
+                data.order.modules[subjectId][themeId].push(modules.length - 1);
             }
+            
             data.trainingData[subjectId].themes[themeId].modules = modules;
             try {
                 if (await saveData()) {
