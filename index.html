@@ -53,6 +53,22 @@
             background-color: #2c4373;
             transform: scale(1.05);
         }
+        .backup-btn {
+            background-color: purple;
+            color: white;
+            padding: 10px 20px;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: clamp(0.9em, 2vw, 1em);
+            font-weight: 600;
+            margin: 10px 0;
+            transition: background-color 0.3s ease, transform 0.2s ease;
+        }
+        .backup-btn:hover {
+            background-color: #5a0fc8;
+            transform: scale(1.05);
+        }
         .tabs {
             width: 90%;
             max-width: 1200px;
@@ -448,6 +464,18 @@
             max-width: 400px;
             box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
             animation: fadeIn 0.3s ease-in-out;
+            position: relative;
+        }
+        .close {
+            position: absolute;
+            top: 10px;
+            right: 15px;
+            font-size: 24px;
+            cursor: pointer;
+            color: #aaa;
+        }
+        .close:hover {
+            color: #000;
         }
         .modal-content.error {
             animation: shake 0.5s ease-in-out;
@@ -544,9 +572,23 @@
         </div>
     </div>
 
+    <div class="modal" id="backup-modal">
+        <div class="modal-content">
+            <span class="close" id="backup-close">&times;</span>
+            <h2>Backup de Dados</h2>
+            <p>Faça o download do backup atual ou carregue um arquivo JSON para restaurar.</p>
+            <button id="download-btn" style="background-color: #28a745; color: white; padding: 12px 24px; border: none; border-radius: 6px; cursor: pointer; font-size: 1em; font-weight: 600; margin: 10px 5px;">Baixar Backup</button>
+            <br>
+            <input type="file" id="upload-file" accept=".json" style="margin: 10px 0;">
+            <button id="upload-btn" style="background-color: #dc3545; color: white; padding: 12px 24px; border: none; border-radius: 6px; cursor: pointer; font-size: 1em; font-weight: 600; margin: 10px 5px;">Carregar Backup</button>
+        </div>
+    </div>
+
     <header>
         <h1><i class="fas fa-graduation-cap"></i> Gerenciador de Aulas - Universidade LAMIC</h1>
         <button class="change-category-btn" id="change-category-btn">Trocar de Categoria</button>
+        <br>
+        <button id="backup-btn" class="backup-btn"><i class="fas fa-save"></i> Backup</button>
     </header>
 
     <div class="warning-message" id="warning-message">
@@ -699,6 +741,7 @@
         const masterKey = '$2a$10$2elKW8TT6o.K3V176efqwu7kOfD1PnS3D/F0s4Tczc3MYmaU.N1bi';
         const passwordBinId = '68d7e57bd0ea881f408cf33b';
         let currentBinId = null;
+        let currentCategory = null;
         let apiUrl = null;
         let data = { trainingData: {}, quizData: {} };
         let currentSubjectId = null;
@@ -829,10 +872,79 @@
                 return;
             }
             currentBinId = bins[category];
+            currentCategory = category;
             apiUrl = `https://api.jsonbin.io/v3/b/${currentBinId}`;
             loginAttempts = 0;
             hideModal();
             await fetchData();
+        });
+
+        document.getElementById('backup-btn').addEventListener('click', () => {
+            if (!currentBinId) {
+                showWarning('Selecione uma categoria primeiro.');
+                return;
+            }
+            document.getElementById('backup-modal').style.display = 'flex';
+        });
+
+        document.getElementById('download-btn').addEventListener('click', async () => {
+            try {
+                const response = await fetch(`${apiUrl}/latest`, {
+                    headers: { 'X-Master-Key': masterKey }
+                });
+                if (!response.ok) throw new Error('Erro ao baixar dados');
+                const result = await response.json();
+                const jsonData = JSON.stringify(result.record, null, 2);
+                const date = new Date().toISOString().split('T')[0];
+                const filename = `${currentCategory.replace(/\s+/g, '_')}_backup_${date}.json`;
+                const blob = new Blob([jsonData], { type: 'application/json' });
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = filename;
+                document.body.appendChild(a);
+                a.click();
+                document.body.removeChild(a);
+                URL.revokeObjectURL(url);
+                showWarning('Backup baixado com sucesso!');
+            } catch (error) {
+                showWarning('Erro ao baixar backup: ' + error.message);
+            }
+        });
+
+        document.getElementById('upload-btn').addEventListener('click', async () => {
+            const fileInput = document.getElementById('upload-file');
+            if (!fileInput.files[0]) {
+                showWarning('Selecione um arquivo JSON primeiro.');
+                return;
+            }
+            const confirmation = prompt('Digite "SIM" para confirmar o upload e substituição de todos os dados:');
+            if (confirmation !== 'SIM') {
+                showWarning('Upload cancelado.');
+                return;
+            }
+            try {
+                const file = fileInput.files[0];
+                const text = await file.text();
+                const newData = JSON.parse(text);
+                data = newData;
+                initializeOrderFields();
+                await saveData();
+                // Reload UI
+                populateSubjectSelects();
+                populateSubjects();
+                populateThemes();
+                populateModules();
+                populateQuizzes();
+                document.getElementById('backup-modal').style.display = 'none';
+                showWarning('Backup carregado com sucesso!');
+            } catch (error) {
+                showWarning('Erro ao carregar backup: ' + error.message);
+            }
+        });
+
+        document.getElementById('backup-close').addEventListener('click', () => {
+            document.getElementById('backup-modal').style.display = 'none';
         });
 
         document.getElementById('change-category-btn').addEventListener('click', () => {
