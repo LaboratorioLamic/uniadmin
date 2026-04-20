@@ -251,6 +251,65 @@
                 transform: translateY(0);
             }
         }
+        .loading-overlay {
+            position: fixed;
+            inset: 0;
+            background: rgba(15, 23, 42, 0.6);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 9999;
+            pointer-events: none;
+            opacity: 0;
+            visibility: hidden;
+            transition: opacity 0.2s ease, visibility 0.2s ease;
+        }
+        .loading-overlay.active {
+            pointer-events: auto;
+            opacity: 1;
+            visibility: visible;
+        }
+        .loading-panel {
+            width: min(92%, 520px);
+            padding: 28px 24px;
+            background: rgba(255, 255, 255, 0.97);
+            border-radius: 24px;
+            box-shadow: 0 24px 80px rgba(15, 23, 42, 0.22);
+            text-align: center;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 18px;
+        }
+        .loading-message {
+            font-size: clamp(1rem, 1.2vw, 1.15rem);
+            color: #12263f;
+            font-weight: 700;
+        }
+        .loading-bar-container {
+            width: 100%;
+            max-width: 500px;
+            height: 10px;
+            background: rgba(26, 43, 73, 0.08);
+            border-radius: 999px;
+            overflow: hidden;
+            box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.1);
+            margin-top: 0;
+        }
+        .loading-bar {
+            width: 0%;
+            height: 100%;
+            border-radius: 999px;
+            background: linear-gradient(90deg, var(--accent-color, #4a90e2), #00d4ff, var(--accent-color, #4a90e2));
+            background-size: 200% 100%;
+            box-shadow: 0 0 16px rgba(0, 212, 255, 0.24);
+            animation: shimmer 2s ease-in-out infinite;
+            transition: width 0.2s ease;
+        }
+        @keyframes shimmer {
+            0% { background-position: -200% 0; }
+            100% { background-position: 200% 0; }
+        }
         /* Toggle Switch Styles */
         .quiz-toggle-container {
             display: flex;
@@ -552,6 +611,14 @@
     </style>
 </head>
 <body>
+    <div id="loading-overlay" class="loading-overlay" aria-hidden="true">
+        <div class="loading-panel">
+            <div class="loading-message">Carregando dados...</div>
+            <div id="loading-bar-container" class="loading-bar-container">
+                <div id="loading-bar" class="loading-bar"></div>
+            </div>
+        </div>
+    </div>
     <div class="modal" id="category-modal">
         <div class="modal-content" id="modal-content">
             <h2>Selecionar Categoria</h2>
@@ -788,6 +855,67 @@
             }, 3000);
         }
 
+        let loadingBarAnimationId = null;
+        let loadingBarStart = null;
+
+        function showLoadingBar() {
+            const overlay = document.getElementById('loading-overlay');
+            const bar = document.getElementById('loading-bar');
+            if (!overlay || !bar) return;
+            overlay.classList.add('active');
+            overlay.setAttribute('aria-hidden', 'false');
+            bar.style.width = '0%';
+            loadingBarStart = null;
+            if (loadingBarAnimationId) cancelAnimationFrame(loadingBarAnimationId);
+
+            function step(timestamp) {
+                if (!loadingBarStart) loadingBarStart = timestamp;
+                const elapsed = timestamp - loadingBarStart;
+                const duration = 15000;
+                const baseProgress = Math.min(98, (elapsed / duration) * 98);
+                const variation = (Math.random() - 0.5) * 2 * (1 - Math.min(elapsed, duration) / duration);
+                const progress = Math.min(98, Math.max(0, baseProgress + variation));
+                bar.style.width = `${progress}%`;
+                if (elapsed < duration) {
+                    loadingBarAnimationId = requestAnimationFrame(step);
+                } else {
+                    bar.style.width = '98%';
+                }
+            }
+
+            loadingBarAnimationId = requestAnimationFrame(step);
+        }
+
+        function hideLoadingBar() {
+            const overlay = document.getElementById('loading-overlay');
+            const bar = document.getElementById('loading-bar');
+            if (!overlay || !bar) return;
+            if (loadingBarAnimationId) {
+                cancelAnimationFrame(loadingBarAnimationId);
+                loadingBarAnimationId = null;
+            }
+            bar.style.width = '100%';
+            setTimeout(() => {
+                overlay.classList.remove('active');
+                overlay.setAttribute('aria-hidden', 'true');
+                bar.style.width = '0%';
+            }, 800);
+        }
+
+        function cancelLoadingBar() {
+            if (loadingBarAnimationId) {
+                cancelAnimationFrame(loadingBarAnimationId);
+                loadingBarAnimationId = null;
+            }
+            const overlay = document.getElementById('loading-overlay');
+            const bar = document.getElementById('loading-bar');
+            if (overlay) {
+                overlay.classList.remove('active');
+                overlay.setAttribute('aria-hidden', 'true');
+            }
+            if (bar) bar.style.width = '0%';
+        }
+
         function showModal() {
             document.getElementById('category-modal').style.display = 'flex';
             document.getElementById('category-select').value = '';
@@ -859,24 +987,40 @@
                 showWarning('Por favor, insira a senha.');
                 return;
             }
-            const isValid = await validatePassword(password);
-            const modalContent = document.getElementById('modal-content');
-            if (!isValid) {
-                loginAttempts++;
-                modalContent.classList.add('error');
-                showWarning('Senha incorreta.');
-                setTimeout(() => modalContent.classList.remove('error'), 500);
-                if (loginAttempts >= 5) {
-                    startLockout();
+            showLoadingBar();
+            try {
+                const isValid = await validatePassword(password);
+                const modalContent = document.getElementById('modal-content');
+                if (!isValid) {
+                    loginAttempts++;
+                    modalContent.classList.add('error');
+                    showWarning('Senha incorreta.');
+                    setTimeout(() => modalContent.classList.remove('error'), 500);
+                    if (loginAttempts >= 5) {
+                        startLockout();
+                    }
+                    cancelLoadingBar();
+                    return;
                 }
-                return;
+                currentBinId = bins[category];
+                currentCategory = category;
+                apiUrl = `https://api.jsonbin.io/v3/b/${currentBinId}`;
+                loginAttempts = 0;
+                hideModal();
+                await fetchData();
+            } catch (error) {
+                cancelLoadingBar();
+                throw error;
+            } finally {
+                hideLoadingBar();
             }
-            currentBinId = bins[category];
-            currentCategory = category;
-            apiUrl = `https://api.jsonbin.io/v3/b/${currentBinId}`;
-            loginAttempts = 0;
-            hideModal();
-            await fetchData();
+        });
+
+        document.getElementById('password-input').addEventListener('keydown', (event) => {
+            if (event.key === 'Enter') {
+                event.preventDefault();
+                document.getElementById('category-submit').click();
+            }
         });
 
         document.getElementById('backup-btn').addEventListener('click', () => {
