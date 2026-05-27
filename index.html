@@ -169,6 +169,7 @@
             background: var(--primary-light); color: var(--primary);
             border-radius: 20px; font-size: 12px; font-weight: 600;
             transition: all 0.2s;
+            margin-right: 100px;
         }
         .category-badge.inactive { background: #f1f5f9; color: var(--text-3); }
 
@@ -583,8 +584,10 @@
                     <option value="Educação Continuada">Educação Continuada</option>
                     <option value="Estágios">Estágios</option>
                 </select>
-                <label for="password-input">Senha de acesso</label>
-                <input type="password" id="password-input" placeholder="Digite a senha">
+                <div id="password-field" style="display:none;">
+                    <label for="password-input">Senha de acesso</label>
+                    <input type="password" id="password-input" placeholder="Digite a senha">
+                </div>
                 <button id="category-submit">
                     <i class="fas fa-sign-in-alt"></i> Entrar
                 </button>
@@ -1047,6 +1050,8 @@
             document.getElementById('lockout-message').style.display = 'none';
             document.getElementById('progress-bar-container').style.display = 'none';
             document.getElementById('category-submit').disabled = isLocked;
+            // Show password field only on first login
+            document.getElementById('password-field').style.display = currentCategory ? 'none' : 'block';
         }
 
         function hideModal() {
@@ -1099,19 +1104,25 @@
             const category = document.getElementById('category-select').value;
             const password = document.getElementById('password-input').value;
             if (!category) { showWarning('Por favor, selecione uma categoria.'); return; }
-            if (!password) { showWarning('Por favor, insira a senha.'); return; }
+            
+            // Only require password on first login
+            if (!currentCategory && !password) { showWarning('Por favor, insira a senha.'); return; }
+            
             showLoadingBar();
             try {
-                const isValid = await validatePassword(password);
-                const modalContent = document.getElementById('modal-content');
-                if (!isValid) {
-                    loginAttempts++;
-                    modalContent.classList.add('error');
-                    showWarning('Senha incorreta.');
-                    setTimeout(() => modalContent.classList.remove('error'), 500);
-                    if (loginAttempts >= 5) { startLockout(); }
-                    cancelLoadingBar();
-                    return;
+                // If it's the first login, validate password
+                if (!currentCategory) {
+                    const isValid = await validatePassword(password);
+                    const modalContent = document.getElementById('modal-content');
+                    if (!isValid) {
+                        loginAttempts++;
+                        modalContent.classList.add('error');
+                        showWarning('Senha incorreta.');
+                        setTimeout(() => modalContent.classList.remove('error'), 500);
+                        if (loginAttempts >= 5) { startLockout(); }
+                        cancelLoadingBar();
+                        return;
+                    }
                 }
                 currentCategory = category;
                 currentDbPath = getCategoryDbPath(category);
