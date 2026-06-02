@@ -1699,9 +1699,10 @@
                 return { title: t?.trim(), url: url?.trim() };
             }).filter(a => a.title && a.url);
             const module = {
-                title, caption: moduleCaptionInput.value.trim() || undefined,
-                videoId: moduleVideoInput.value.trim() || undefined,
-                pdfUrl: modulePdfInput.value.trim() || undefined,
+                title,
+                ...(moduleCaptionInput.value.trim() && { caption: moduleCaptionInput.value.trim() }),
+                ...(moduleVideoInput.value.trim() && { videoId: moduleVideoInput.value.trim() }),
+                ...(modulePdfInput.value.trim() && { pdfUrl: modulePdfInput.value.trim() }),
                 attachments: attachments.length ? attachments : []
             };
             showSpinner('module-loading', true);
